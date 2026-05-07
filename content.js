@@ -79,9 +79,6 @@ const darkStyles = `
   .gmail-sidebar-hidden-by-extension {
     display: none !important;
   }
-  .gmail-sidebar-force-visible-by-extension {
-    display: block !important;
-  }
 
   .gmail-sidebar-panel {
     position: fixed;
@@ -542,24 +539,8 @@ function detectSidebarItems() {
     return items;
 }
 
-function isSidebarMoreExpanded() {
-    const toggles = Array.from(document.querySelectorAll('[role="button"], [aria-expanded], a, div'))
-        .filter((el) => {
-            if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
-            if (!el.closest('[role="navigation"], nav')) return false;
-            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
-            if (text.length > 40) return false;
-            return /^(less|menos)$/i.test(text) || /\b(show less|mostrar menos)\b/i.test(text) || /\b(show more|mostrar mas|mostrar más)\b/i.test(text);
-        });
-
-    return toggles.some((toggle) => {
-        const text = cleanSidebarText(toggle.getAttribute('aria-label') || toggle.getAttribute('title') || toggle.textContent);
-        return toggle.getAttribute('aria-expanded') === 'true' || /^(less|menos)$/i.test(text) || /\b(show less|mostrar menos)\b/i.test(text);
-    });
-}
-
-function findSidebarMoreRow() {
-    const toggles = Array.from(document.querySelectorAll('[role="button"], [aria-expanded], a, div'))
+function getSidebarMoreToggle() {
+    return Array.from(document.querySelectorAll('[role="button"], [aria-expanded], a, div'))
         .filter((el) => {
             if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
             if (!el.closest('[role="navigation"], nav')) return false;
@@ -567,58 +548,32 @@ function findSidebarMoreRow() {
             if (text.length > 40) return false;
             return /^(more|mas|más|less|menos)$/i.test(text) ||
                 /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
-        });
-
-    const toggle = toggles.find((el) => {
-        const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
-        return /^(more|mas|más|less|menos)$/i.test(text) ||
-            /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
-    });
-
-    return toggle ? getSidebarRow(toggle) : null;
+        })
+        .find((el) => {
+            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+            return /^(more|mas|más|less|menos)$/i.test(text) ||
+                /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
+        }) || null;
 }
 
-function arrangeSidebarItemsAroundMore(items, visibleItems, moreRow) {
-    if (!moreRow || !moreRow.parentElement) return;
-
-    const parent = moreRow.parentElement;
-    const visibleRows = items
-        .filter((item) => visibleItems.has(item.key) && item.row.parentElement === parent)
-        .map((item) => item.row);
-    const hiddenRows = items
-        .filter((item) => !visibleItems.has(item.key) && item.row.parentElement === parent)
-        .map((item) => item.row);
-    const desiredOrder = [...visibleRows, moreRow, ...hiddenRows];
-
-    for (let index = desiredOrder.length - 1; index >= 0; index--) {
-        const row = desiredOrder[index];
-        const nextRow = desiredOrder[index + 1] || null;
-        if (row !== moreRow && row.nextSibling !== nextRow) {
-            parent.insertBefore(row, nextRow);
-        }
-    }
-
+function isSidebarMoreExpanded(toggle) {
+    if (!toggle) return false;
+    const text = cleanSidebarText(toggle.getAttribute('aria-label') || toggle.getAttribute('title') || toggle.textContent);
+    return toggle.getAttribute('aria-expanded') === 'true' ||
+        /^(less|menos)$/i.test(text) ||
+        /\b(show less|mostrar menos)\b/i.test(text);
 }
 
 function applySidebarSimplifier() {
     getSidebarSettings((settings) => {
         const visibleItems = new Set(settings.visibleItems);
-        const moreExpanded = isSidebarMoreExpanded();
-        const moreRow = findSidebarMoreRow();
+        const moreToggle = getSidebarMoreToggle();
+        const moreExpanded = isSidebarMoreExpanded(moreToggle);
         const sidebarItems = detectSidebarItems();
 
         sidebarItems.forEach((item) => {
-            item.row.classList.remove('gmail-sidebar-force-visible-by-extension');
-        });
-
-        if (settings.enabled && !moreExpanded) {
-            arrangeSidebarItemsAroundMore(sidebarItems, visibleItems, moreRow);
-        }
-
-        sidebarItems.forEach((item) => {
-            const shouldHide = settings.enabled && !moreExpanded && !visibleItems.has(item.key);
+            const shouldHide = settings.enabled && moreToggle && !moreExpanded && !visibleItems.has(item.key);
             item.row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHide);
-            item.row.classList.toggle('gmail-sidebar-force-visible-by-extension', settings.enabled && !moreExpanded && visibleItems.has(item.key));
         });
 
         updateSidebarButtonAppearance(settings);
@@ -632,7 +587,7 @@ function applySidebarSimplifier() {
     });
 }
 
-function scheduleSidebarSimplifier(delay = 120) {
+function scheduleSidebarSimplifier(delay = 300) {
     clearTimeout(window._sidebarSimplifyTimeout);
     window._sidebarSimplifyTimeout = setTimeout(applySidebarSimplifier, delay);
 }
