@@ -507,8 +507,25 @@ function getSidebarRow(link) {
     return link.closest('.TO') ||
         link.closest('.aim') ||
         link.closest('[role="treeitem"]') ||
+        link.closest('[role="button"]') ||
         link.closest('[role="link"]') ||
         link;
+}
+
+function getSidebarControlRow(el) {
+    const explicitRow = getSidebarRow(el);
+    if (explicitRow !== el) return explicitRow;
+
+    let row = el;
+    let parent = el.parentElement;
+    while (parent && parent.closest('[role="navigation"], nav') && !parent.matches('[role="navigation"], nav')) {
+        const text = cleanSidebarText(parent.textContent);
+        if (text.length > 90 || parent.children.length > 8) break;
+        row = parent;
+        parent = parent.parentElement;
+    }
+
+    return row;
 }
 
 function detectSidebarItems() {
@@ -539,7 +556,9 @@ function detectSidebarItems() {
     return items;
 }
 
-function getSidebarMoreToggle() {
+function getSidebarMoreToggles() {
+    const seen = new Set();
+
     return Array.from(document.querySelectorAll('[role="button"], [aria-expanded], a, div'))
         .filter((el) => {
             if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
@@ -549,11 +568,19 @@ function getSidebarMoreToggle() {
             return /^(more|mas|más|less|menos)$/i.test(text) ||
                 /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
         })
-        .find((el) => {
+        .filter((el) => {
             const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
-            return /^(more|mas|más|less|menos)$/i.test(text) ||
+            const isMoreToggle = /^(more|mas|más|less|menos)$/i.test(text) ||
                 /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
-        }) || null;
+            const row = getSidebarControlRow(el);
+            if (!isMoreToggle || seen.has(row)) return false;
+            seen.add(row);
+            return true;
+        });
+}
+
+function getSidebarMoreToggle() {
+    return getSidebarMoreToggles()[0] || null;
 }
 
 function isSidebarMoreExpanded(toggle) {
@@ -564,12 +591,44 @@ function isSidebarMoreExpanded(toggle) {
         /\b(show less|mostrar menos)\b/i.test(text);
 }
 
+function getLabelsHeaderRows() {
+    const seen = new Set();
+
+    return Array.from(document.querySelectorAll('[role="navigation"] *, nav *'))
+        .filter((el) => {
+            if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
+            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+            return /^(labels|etiquetas)$/i.test(text);
+        })
+        .map(getSidebarControlRow)
+        .filter((row) => {
+            if (!row || seen.has(row)) return false;
+            seen.add(row);
+            return true;
+        });
+}
+
+function toggleAuxiliarySidebarControls(settings, primaryMoreToggle) {
+    const primaryMoreRow = primaryMoreToggle ? getSidebarControlRow(primaryMoreToggle) : null;
+    const auxiliaryRows = [
+        ...getSidebarMoreToggles().map(getSidebarControlRow).filter((row) => row && row !== primaryMoreRow),
+        ...getLabelsHeaderRows()
+    ];
+    const shouldHide = settings.enabled && Boolean(primaryMoreToggle);
+
+    auxiliaryRows.forEach((row) => {
+        row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHide);
+    });
+}
+
 function applySidebarSimplifier() {
     getSidebarSettings((settings) => {
         const visibleItems = new Set(settings.visibleItems);
         const moreToggle = getSidebarMoreToggle();
         const moreExpanded = isSidebarMoreExpanded(moreToggle);
         const sidebarItems = detectSidebarItems();
+
+        toggleAuxiliarySidebarControls(settings, moreToggle);
 
         sidebarItems.forEach((item) => {
             const shouldHide = settings.enabled && moreToggle && !moreExpanded && !visibleItems.has(item.key);

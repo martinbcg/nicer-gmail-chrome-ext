@@ -7,7 +7,7 @@ It adds a single settings button inside Gmail with two controls:
 - Theme: Light, System, or Dark.
 - Sidebar simplifier: choose which Gmail sidebar items stay visible.
 
-Hidden sidebar items are shown again when Gmail's native **More** menu is expanded, so the extension does not add a second sidebar dropdown.
+Hidden sidebar items are shown again when Gmail's native **More** menu is expanded. The extension also hides Gmail's separate label-section **More** control while sidebar simplification is enabled, so there is only one sidebar expansion point.
 
 ## Features
 
