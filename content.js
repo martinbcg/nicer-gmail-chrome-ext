@@ -360,34 +360,30 @@ function rectFromElement(el) {
     return rect;
 }
 
-function getVisibleGmailLogoRect() {
+function getVisibleGmailLogoRect(searchRect) {
+    const gb = document.getElementById('gb');
     const logoCandidates = [
-        document.querySelector('a[aria-label="Gmail"]'),
-        document.querySelector('[aria-label="Gmail"]'),
-        document.querySelector('img[alt="Gmail"]'),
-        document.querySelector('.gb_gd'),
-        document.querySelector('.gb_fd')
+        ...document.querySelectorAll('a[aria-label="Gmail"], [aria-label="Gmail"], img[alt="Gmail"], .gb_gd, .gb_fd'),
+        ...(gb ? Array.from(gb.querySelectorAll('*')).filter((el) => cleanSidebarText(el.textContent) === 'Gmail') : [])
     ];
 
-    for (const candidate of logoCandidates) {
-        const rect = rectFromElement(candidate);
-        if (rect) return rect;
-    }
-
-    return null;
+    return logoCandidates
+        .map(rectFromElement)
+        .filter((rect) => rect && (!searchRect || rect.right < searchRect.left))
+        .sort((a, b) => b.right - a.right)[0] || null;
 }
 
 function positionSettingsButtonSlot() {
     const slot = document.querySelector('.gmail-extension-button-slot');
     if (!slot) return;
 
-    const logoRect = getVisibleGmailLogoRect();
     const searchRect = rectFromElement(document.querySelector('form[role="search"]')) ||
         rectFromElement(document.querySelector('[role="search"]'));
+    const logoRect = getVisibleGmailLogoRect(searchRect);
 
-    let left = logoRect ? logoRect.right + 20 : 304;
+    let left = logoRect ? logoRect.right + 26 : 304;
     if (searchRect) {
-        left = Math.min(left, searchRect.left - 58);
+        left = Math.min(left, searchRect.left - 92);
     }
     left = Math.max(224, Math.round(left));
 
