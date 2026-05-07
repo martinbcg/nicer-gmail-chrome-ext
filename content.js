@@ -38,8 +38,9 @@ const darkStyles = `
   
   /* Navigation Bar Button Style */
   .theme-toggle-btn {
-    background: transparent;
-    border: none;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -51,10 +52,11 @@ const darkStyles = `
     vertical-align: middle;
     z-index: 999;
     flex-shrink: 0;
-    margin: 0 4px;
+    margin: 0 12px;
+    position: relative;
   }
   .theme-toggle-btn:hover {
-    background: rgba(60, 64, 67, 0.1);
+    background: rgba(60, 64, 67, 0.1) !important;
     transform: scale(1.1);
   }
   .theme-toggle-btn:active {
@@ -74,7 +76,27 @@ const darkStyles = `
     fill: #81c995;
   }
   .theme-toggle-btn[data-sidebar-enabled="true"] {
-    background: rgba(251, 188, 4, 0.16);
+    background: transparent !important;
+  }
+  html.gmail-ready[data-custom-theme="dark"] .theme-toggle-btn,
+  html.gmail-ready[data-custom-theme="dark"] .gmail-extension-button-slot {
+    filter: invert(1) hue-rotate(180deg) !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    html.gmail-ready[data-custom-theme="system"] .theme-toggle-btn,
+    html.gmail-ready[data-custom-theme="system"] .gmail-extension-button-slot {
+      filter: invert(1) hue-rotate(180deg) !important;
+    }
+  }
+
+  .gmail-extension-button-slot {
+    align-items: center;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 48px;
+    justify-content: center;
+    margin-left: 8px;
+    margin-right: 16px;
   }
 
   .gmail-sidebar-hidden-by-extension {
@@ -317,7 +339,6 @@ function createSettingsButton() {
     btn.type = 'button';
     btn.innerHTML = SETTINGS_ICON;
     btn.title = 'Gmail extension settings';
-    btn.style.marginLeft = '10px';
 
     chrome.storage.sync.get(['gmailTheme'], (res) => {
         const currentTheme = res.gmailTheme || 'system';
@@ -331,6 +352,29 @@ function createSettingsButton() {
     });
 
     return btn;
+}
+
+function placeSettingsButtonNearLogo(btn, logoArea) {
+    const slot = document.createElement('div');
+    slot.className = 'gmail-extension-button-slot';
+    slot.appendChild(btn);
+
+    const wrapper = logoArea.closest('div.gb_gd') ||
+        logoArea.closest('div.gb_fd') ||
+        logoArea.closest('div[role="button"]') ||
+        logoArea.closest('div');
+
+    if (wrapper && wrapper.parentElement && wrapper.closest('#gb')) {
+        wrapper.after(slot);
+        return true;
+    }
+
+    if (logoArea.parentElement && logoArea.closest('#gb')) {
+        logoArea.after(slot);
+        return true;
+    }
+
+    return false;
 }
 
 function injectSwitcher() {
@@ -375,37 +419,11 @@ function injectSwitcher() {
     if (anchor) {
         const btn = createSettingsButton();
 
-        // Placement Logic
-        // Priority 1: Insert before the Search Bar (Center of header)
-        // This is usually the most stable place in the flux layout
-        const searchForm = document.querySelector('form[role="search"]');
-        if (searchForm) {
-            // We want the main container of the search form to insert before it
-            // usually it's a few levels up
-            let searchWrapper = searchForm.closest('div.gb_Td') || searchForm.closest('div.gb_Ld') || searchForm.parentElement;
-            
-            if (searchWrapper && searchWrapper.parentElement && window.getComputedStyle(searchWrapper.parentElement).display === 'flex') {
-                 searchWrapper.parentElement.insertBefore(btn, searchWrapper);
-                 btn.style.marginRight = '20px';
-                 btn.style.marginLeft = '10px';
-                 updateSidebarButtonAppearance();
-                 return;
-            }
-        }
-
-        // Priority 2: Next to the Logo (Top Left)
         if (anchor.classList.contains('gb_jd') || anchor.classList.contains('gb_gd') || anchor.getAttribute('aria-label') === 'Gmail') {
-             const wrapper = anchor.closest('div.gb_gd') || anchor.closest('div.gb_fd') || anchor.closest('div'); 
-             if (wrapper) {
-                 wrapper.after(btn);
-                 btn.style.marginLeft = '20px';
-                 btn.style.alignSelf = 'center';
-             } else {
+             if (!placeSettingsButtonNearLogo(btn, anchor)) {
                  anchor.after(btn);
-                 btn.style.marginLeft = '20px';
              }
         }
-        // Priority 3: Fallback to Top Right Header
         else {
             let target = anchor.closest('.gb_Kd') || anchor.closest('.gb_re') || anchor.parentElement;
             
