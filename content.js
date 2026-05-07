@@ -72,6 +72,148 @@ const darkStyles = `
   .theme-toggle-btn[data-theme="system"] svg {
     fill: #81c995;
   }
+
+  .sidebar-settings-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    transition: background 0.2s, transform 0.2s;
+    vertical-align: middle;
+    z-index: 999;
+    flex-shrink: 0;
+    margin: 0 4px;
+  }
+  .sidebar-settings-btn:hover {
+    background: rgba(60, 64, 67, 0.1);
+    transform: scale(1.1);
+  }
+  .sidebar-settings-btn:active {
+    transform: scale(0.95);
+  }
+  .sidebar-settings-btn svg {
+    fill: #5f6368;
+    width: 20px;
+    height: 20px;
+    transition: fill 0.2s;
+  }
+  .sidebar-settings-btn[data-enabled="true"] svg {
+    fill: #fbbc04;
+  }
+
+  .gmail-sidebar-hidden-by-extension {
+    display: none !important;
+  }
+  .gmail-sidebar-force-visible-by-extension {
+    display: block !important;
+  }
+
+  .gmail-sidebar-panel {
+    position: fixed;
+    top: 64px;
+    left: 84px;
+    width: min(340px, calc(100vw - 32px));
+    max-height: min(640px, calc(100vh - 96px));
+    z-index: 2147483647;
+    background: #fff;
+    color: #202124;
+    border: 1px solid rgba(60, 64, 67, 0.18);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(60, 64, 67, 0.24);
+    font-family: "Google Sans", Roboto, Arial, sans-serif;
+    overflow: hidden;
+  }
+  .gmail-sidebar-panel[data-theme-active="true"] {
+    filter: invert(1) hue-rotate(180deg);
+  }
+  .gmail-sidebar-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid rgba(60, 64, 67, 0.12);
+  }
+  .gmail-sidebar-panel-title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+  .gmail-sidebar-panel-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    color: #5f6368;
+    font-size: 22px;
+    line-height: 32px;
+  }
+  .gmail-sidebar-panel-close:hover {
+    background: rgba(60, 64, 67, 0.1);
+  }
+  .gmail-sidebar-panel-body {
+    max-height: calc(min(640px, calc(100vh - 96px)) - 62px);
+    overflow: auto;
+    padding: 10px 0 12px;
+  }
+  .gmail-sidebar-master-row,
+  .gmail-sidebar-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
+    padding: 0 16px;
+    box-sizing: border-box;
+    font-size: 14px;
+  }
+  .gmail-sidebar-master-row {
+    font-weight: 500;
+    border-bottom: 1px solid rgba(60, 64, 67, 0.12);
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+  }
+  .gmail-sidebar-option input,
+  .gmail-sidebar-master-row input {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+  }
+  .gmail-sidebar-option span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gmail-sidebar-panel-empty {
+    color: #5f6368;
+    font-size: 13px;
+    line-height: 18px;
+    padding: 6px 16px 12px;
+  }
+  .gmail-sidebar-panel-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 16px 2px;
+  }
+  .gmail-sidebar-reset {
+    border: none;
+    background: transparent;
+    color: #1a73e8;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    padding: 8px;
+    border-radius: 4px;
+  }
+  .gmail-sidebar-reset:hover {
+    background: rgba(26, 115, 232, 0.08);
+  }
 `;
 styleTag.textContent = darkStyles;
 
@@ -88,6 +230,25 @@ const TITLES = {
   system: 'System Mode (click for Dark)'
 };
 
+const SIDEBAR_DEFAULT_VISIBLE = ['inbox', 'sent', 'drafts'];
+const SIDEBAR_STORAGE_KEYS = ['gmailSidebarSimplifyEnabled', 'gmailSidebarVisibleItems'];
+
+const SIDEBAR_ICON = `<svg viewBox="0 0 24 24"><path d="M3 5.5C3 4.67 3.67 4 4.5 4h15c.83 0 1.5.67 1.5 1.5v13c0 .83-.67 1.5-1.5 1.5h-15C3.67 20 3 19.33 3 18.5v-13zM5 6v12h4V6H5zm6 0v12h8V6h-8zm-5 3h2v1.5H6V9zm0 3h2v1.5H6V12zm0 3h2v1.5H6V15z"/></svg>`;
+
+const CORE_SIDEBAR_ITEMS = {
+  inbox: 'Inbox',
+  starred: 'Starred',
+  snoozed: 'Snoozed',
+  important: 'Important',
+  sent: 'Sent',
+  drafts: 'Drafts',
+  scheduled: 'Scheduled',
+  all: 'All Mail',
+  spam: 'Spam',
+  trash: 'Trash',
+  chats: 'Chats'
+};
+
 // --- 2. Update Toggle Button Appearance ---
 function updateToggleButton(theme) {
     const btn = document.getElementById('gmail-theme-toggle-btn');
@@ -101,7 +262,10 @@ function updateToggleButton(theme) {
 // --- 3. Inject Button into Gmail UI ---
 function injectSwitcher() {
     // Check if button already exists
-    if (document.getElementById('gmail-theme-toggle-btn')) return;
+    if (document.getElementById('gmail-theme-toggle-btn')) {
+        injectSidebarButton();
+        return;
+    }
 
     const gb = document.getElementById('gb');
     let possibleAnchors = [];
@@ -183,6 +347,7 @@ function injectSwitcher() {
                  searchWrapper.parentElement.insertBefore(btn, searchWrapper);
                  btn.style.marginRight = '20px';
                  btn.style.marginLeft = '10px';
+                 injectSidebarButton();
                  return;
             }
         }
@@ -220,10 +385,424 @@ function injectSwitcher() {
                  btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
             }
         }
+
+        injectSidebarButton();
+    } else {
+        injectSidebarButton();
     }
 }
 
-// --- 4. Update Theme Function ---
+// --- 4. Sidebar Simplifier ---
+function getSidebarSettings(callback) {
+    chrome.storage.sync.get(SIDEBAR_STORAGE_KEYS, (res) => {
+        callback({
+            enabled: res.gmailSidebarSimplifyEnabled !== false,
+            visibleItems: Array.isArray(res.gmailSidebarVisibleItems)
+                ? res.gmailSidebarVisibleItems
+                : [...SIDEBAR_DEFAULT_VISIBLE]
+        });
+    });
+}
+
+function saveSidebarSettings(partial, callback) {
+    getSidebarSettings((current) => {
+        const next = {
+            gmailSidebarSimplifyEnabled: current.enabled,
+            gmailSidebarVisibleItems: current.visibleItems,
+            ...partial
+        };
+
+        chrome.storage.sync.set(next, () => {
+            applySidebarSimplifier();
+            updateSidebarButtonAppearance();
+            if (document.getElementById('gmail-sidebar-settings-panel')) {
+                renderSidebarSettingsPanel({
+                    enabled: next.gmailSidebarSimplifyEnabled,
+                    visibleItems: next.gmailSidebarVisibleItems
+                });
+            }
+            if (callback) callback();
+        });
+    });
+}
+
+function cleanSidebarText(text) {
+    return (text || '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s+\d+(\s+unread)?$/i, '')
+        .trim();
+}
+
+function keyToLabel(key) {
+    if (CORE_SIDEBAR_ITEMS[key]) return CORE_SIDEBAR_ITEMS[key];
+    if (key.startsWith('category:')) {
+        const name = key.slice('category:'.length);
+        return `Category: ${titleCase(name)}`;
+    }
+    if (key.startsWith('label:')) {
+        return `Label: ${decodeURIComponent(key.slice('label:'.length))}`;
+    }
+    return titleCase(key);
+}
+
+function titleCase(value) {
+    return (value || '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getSidebarItemKey(link) {
+    const href = link.getAttribute('href') || '';
+    if (!href.includes('#')) return null;
+
+    let hash = '';
+    try {
+        hash = decodeURIComponent(new URL(href, window.location.href).hash || '');
+    } catch (e) {
+        hash = decodeURIComponent(href.slice(href.indexOf('#')));
+    }
+
+    hash = hash.replace(/^#/, '').split('?')[0];
+    if (!hash) return null;
+
+    if (hash.startsWith('category/')) {
+        const category = hash.slice('category/'.length).split('/')[0];
+        return category ? `category:${category.toLowerCase()}` : null;
+    }
+
+    if (hash.startsWith('label/')) {
+        const label = hash.slice('label/'.length).split('/')[0];
+        return label ? `label:${label.toLowerCase()}` : null;
+    }
+
+    const key = hash.split('/')[0].toLowerCase();
+    return CORE_SIDEBAR_ITEMS[key] ? key : null;
+}
+
+function getSidebarItemLabel(link, key) {
+    const explicitLabel = cleanSidebarText(
+        link.getAttribute('aria-label') ||
+        link.getAttribute('title') ||
+        link.textContent
+    );
+
+    if (explicitLabel) return explicitLabel;
+    return keyToLabel(key);
+}
+
+function getSidebarRow(link) {
+    return link.closest('.TO') ||
+        link.closest('.aim') ||
+        link.closest('[role="treeitem"]') ||
+        link.closest('[role="link"]') ||
+        link;
+}
+
+function detectSidebarItems() {
+    const links = Array.from(document.querySelectorAll('a[href*="#"]'));
+    const seenRows = new Set();
+    const items = [];
+
+    links.forEach((link) => {
+        if (link.closest('#gb') || link.closest('.gmail-sidebar-panel')) return;
+        const navigation = link.closest('[role="navigation"], nav');
+        if (!navigation) return;
+
+        const key = getSidebarItemKey(link);
+        if (!key) return;
+
+        const row = getSidebarRow(link);
+        if (!row || seenRows.has(row)) return;
+
+        seenRows.add(row);
+        row.dataset.gmailSidebarKey = key;
+        items.push({
+            key,
+            label: getSidebarItemLabel(link, key),
+            row
+        });
+    });
+
+    return items;
+}
+
+function isSidebarMoreExpanded() {
+    const toggles = Array.from(document.querySelectorAll('[role="button"], [aria-expanded], a, div'))
+        .filter((el) => {
+            if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
+            if (!el.closest('[role="navigation"], nav')) return false;
+            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+            if (text.length > 40) return false;
+            return /^(less|menos)$/i.test(text) || /\b(show less|mostrar menos)\b/i.test(text) || /\b(show more|mostrar mas|mostrar más)\b/i.test(text);
+        });
+
+    return toggles.some((toggle) => {
+        const text = cleanSidebarText(toggle.getAttribute('aria-label') || toggle.getAttribute('title') || toggle.textContent);
+        return toggle.getAttribute('aria-expanded') === 'true' || /^(less|menos)$/i.test(text) || /\b(show less|mostrar menos)\b/i.test(text);
+    });
+}
+
+function findSidebarMoreRow() {
+    const toggles = Array.from(document.querySelectorAll('[role="button"], [aria-expanded], a, div'))
+        .filter((el) => {
+            if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
+            if (!el.closest('[role="navigation"], nav')) return false;
+            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+            if (text.length > 40) return false;
+            return /^(more|mas|más|less|menos)$/i.test(text) ||
+                /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
+        });
+
+    const toggle = toggles.find((el) => {
+        const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+        return /^(more|mas|más|less|menos)$/i.test(text) ||
+            /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
+    });
+
+    return toggle ? getSidebarRow(toggle) : null;
+}
+
+function arrangeSidebarItemsAroundMore(items, visibleItems, moreRow) {
+    if (!moreRow || !moreRow.parentElement) return;
+
+    const parent = moreRow.parentElement;
+    const visibleRows = items
+        .filter((item) => visibleItems.has(item.key) && item.row.parentElement === parent)
+        .map((item) => item.row);
+    const hiddenRows = items
+        .filter((item) => !visibleItems.has(item.key) && item.row.parentElement === parent)
+        .map((item) => item.row);
+    const desiredOrder = [...visibleRows, moreRow, ...hiddenRows];
+
+    for (let index = desiredOrder.length - 1; index >= 0; index--) {
+        const row = desiredOrder[index];
+        const nextRow = desiredOrder[index + 1] || null;
+        if (row !== moreRow && row.nextSibling !== nextRow) {
+            parent.insertBefore(row, nextRow);
+        }
+    }
+
+}
+
+function applySidebarSimplifier() {
+    getSidebarSettings((settings) => {
+        const visibleItems = new Set(settings.visibleItems);
+        const moreExpanded = isSidebarMoreExpanded();
+        const moreRow = findSidebarMoreRow();
+        const sidebarItems = detectSidebarItems();
+
+        sidebarItems.forEach((item) => {
+            item.row.classList.remove('gmail-sidebar-force-visible-by-extension');
+        });
+
+        if (settings.enabled && !moreExpanded) {
+            arrangeSidebarItemsAroundMore(sidebarItems, visibleItems, moreRow);
+        }
+
+        sidebarItems.forEach((item) => {
+            const shouldHide = settings.enabled && !moreExpanded && !visibleItems.has(item.key);
+            item.row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHide);
+            item.row.classList.toggle('gmail-sidebar-force-visible-by-extension', settings.enabled && !moreExpanded && visibleItems.has(item.key));
+        });
+
+        updateSidebarButtonAppearance(settings);
+
+        const panel = document.getElementById('gmail-sidebar-settings-panel');
+        if (panel) {
+            const theme = document.documentElement.getAttribute('data-custom-theme');
+            const darkActive = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            panel.dataset.themeActive = String(darkActive);
+        }
+    });
+}
+
+function scheduleSidebarSimplifier(delay = 120) {
+    clearTimeout(window._sidebarSimplifyTimeout);
+    window._sidebarSimplifyTimeout = setTimeout(applySidebarSimplifier, delay);
+}
+
+function injectSidebarButton() {
+    if (document.getElementById('gmail-sidebar-settings-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'gmail-sidebar-settings-btn';
+    btn.className = 'sidebar-settings-btn';
+    btn.setAttribute('aria-label', 'Configure Gmail sidebar');
+    btn.title = 'Configure Gmail sidebar';
+    btn.type = 'button';
+    btn.innerHTML = SIDEBAR_ICON;
+
+    btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSidebarSettingsPanel();
+    };
+
+    const themeButton = document.getElementById('gmail-theme-toggle-btn');
+    if (themeButton && themeButton.parentElement) {
+        themeButton.after(btn);
+    } else {
+        document.body.appendChild(btn);
+        btn.style.position = 'fixed';
+        btn.style.top = '12px';
+        btn.style.left = '308px';
+        btn.style.zIndex = '99999';
+        btn.style.backgroundColor = 'white';
+        btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+    }
+
+    updateSidebarButtonAppearance();
+}
+
+function updateSidebarButtonAppearance(settings) {
+    const btn = document.getElementById('gmail-sidebar-settings-btn');
+    if (!btn) return;
+
+    if (settings) {
+        btn.setAttribute('data-enabled', String(settings.enabled));
+        return;
+    }
+
+    getSidebarSettings((nextSettings) => {
+        btn.setAttribute('data-enabled', String(nextSettings.enabled));
+    });
+}
+
+function toggleSidebarSettingsPanel() {
+    const existing = document.getElementById('gmail-sidebar-settings-panel');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    getSidebarSettings(renderSidebarSettingsPanel);
+}
+
+function getSidebarOptions() {
+    const detected = detectSidebarItems();
+    const options = new Map();
+
+    Object.entries(CORE_SIDEBAR_ITEMS).forEach(([key, label]) => {
+        options.set(key, { key, label });
+    });
+
+    detected.forEach((item) => {
+        options.set(item.key, { key: item.key, label: item.label || keyToLabel(item.key) });
+    });
+
+    return Array.from(options.values()).sort((a, b) => {
+        const aCoreIndex = Object.keys(CORE_SIDEBAR_ITEMS).indexOf(a.key);
+        const bCoreIndex = Object.keys(CORE_SIDEBAR_ITEMS).indexOf(b.key);
+        if (aCoreIndex !== -1 || bCoreIndex !== -1) {
+            if (aCoreIndex === -1) return 1;
+            if (bCoreIndex === -1) return -1;
+            return aCoreIndex - bCoreIndex;
+        }
+        return a.label.localeCompare(b.label);
+    });
+}
+
+function renderSidebarSettingsPanel(settings) {
+    const previous = document.getElementById('gmail-sidebar-settings-panel');
+    if (previous) previous.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'gmail-sidebar-settings-panel';
+    panel.className = 'gmail-sidebar-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Gmail sidebar settings');
+
+    const theme = document.documentElement.getAttribute('data-custom-theme');
+    const darkActive = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    panel.dataset.themeActive = String(darkActive);
+
+    const visibleItems = new Set(settings.visibleItems);
+    const options = getSidebarOptions();
+
+    panel.innerHTML = `
+        <div class="gmail-sidebar-panel-header">
+            <div class="gmail-sidebar-panel-title">Sidebar</div>
+            <button class="gmail-sidebar-panel-close" type="button" aria-label="Close sidebar settings">&times;</button>
+        </div>
+        <div class="gmail-sidebar-panel-body">
+            <label class="gmail-sidebar-master-row">
+                <input type="checkbox" data-sidebar-master ${settings.enabled ? 'checked' : ''}>
+                <span>Simplify sidebar</span>
+            </label>
+            <div data-sidebar-options></div>
+            <div class="gmail-sidebar-panel-actions">
+                <button class="gmail-sidebar-reset" type="button">Reset defaults</button>
+            </div>
+        </div>
+    `;
+
+    const optionsContainer = panel.querySelector('[data-sidebar-options]');
+    if (options.length === 0) {
+        optionsContainer.innerHTML = '<div class="gmail-sidebar-panel-empty">Open Gmail navigation once to detect sidebar items.</div>';
+    } else {
+        options.forEach((option) => {
+            const row = document.createElement('label');
+            row.className = 'gmail-sidebar-option';
+            row.innerHTML = `
+                <input type="checkbox" data-sidebar-key="${escapeAttribute(option.key)}" ${visibleItems.has(option.key) ? 'checked' : ''}>
+                <span title="${escapeAttribute(option.label)}">${escapeHTML(option.label)}</span>
+            `;
+            optionsContainer.appendChild(row);
+        });
+    }
+
+    panel.querySelector('.gmail-sidebar-panel-close').onclick = () => panel.remove();
+    panel.querySelector('[data-sidebar-master]').onchange = (e) => {
+        saveSidebarSettings({ gmailSidebarSimplifyEnabled: e.target.checked });
+    };
+    panel.querySelector('.gmail-sidebar-reset').onclick = () => {
+        saveSidebarSettings({
+            gmailSidebarSimplifyEnabled: true,
+            gmailSidebarVisibleItems: [...SIDEBAR_DEFAULT_VISIBLE]
+        });
+    };
+
+    panel.querySelectorAll('[data-sidebar-key]').forEach((input) => {
+        input.onchange = () => {
+            const nextVisible = new Set(settings.visibleItems);
+            const key = input.dataset.sidebarKey;
+            if (input.checked) {
+                nextVisible.add(key);
+            } else {
+                nextVisible.delete(key);
+            }
+
+            saveSidebarSettings({ gmailSidebarVisibleItems: Array.from(nextVisible) });
+        };
+    });
+
+    document.body.appendChild(panel);
+
+    setTimeout(() => {
+        const closeOnOutsideClick = (e) => {
+            if (!panel.contains(e.target) && !e.target.closest('#gmail-sidebar-settings-btn')) {
+                panel.remove();
+                document.removeEventListener('click', closeOnOutsideClick, true);
+            }
+        };
+        document.addEventListener('click', closeOnOutsideClick, true);
+    }, 0);
+}
+
+function escapeHTML(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value) {
+    return escapeHTML(value);
+}
+
+// --- 5. Update Theme Function ---
 function updateTheme(theme) {
     document.documentElement.setAttribute('data-custom-theme', theme);
     
@@ -286,7 +865,7 @@ function fixEmailBackgrounds() {
     // Elements with inline background styles
     document.querySelectorAll('[style*="background"]').forEach(el => {
         if (el.tagName === 'IMG' || el.tagName === 'VIDEO' || el.tagName === 'CANVAS') return;
-        if (el.closest('#gb') || el.closest('.theme-toggle-btn')) return;
+        if (el.closest('#gb') || el.closest('.theme-toggle-btn') || el.closest('.sidebar-settings-btn') || el.closest('.gmail-sidebar-panel')) return;
         
         if (!originalStyles.has(el)) {
             originalStyles.set(el, el.getAttribute('style'));
@@ -298,7 +877,7 @@ function fixEmailBackgrounds() {
     
     // Elements with bgcolor attribute
     document.querySelectorAll('[bgcolor]').forEach(el => {
-        if (el.closest('#gb')) return;
+        if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return;
         if (!originalStyles.has(el)) {
             originalStyles.set(el, el.getAttribute('style'));
         }
@@ -370,16 +949,23 @@ chrome.storage.onChanged.addListener((changes) => {
     if (changes.gmailTheme) {
         updateTheme(changes.gmailTheme.newValue);
         updateToggleButton(changes.gmailTheme.newValue);
+        applySidebarSimplifier();
+    }
+
+    if (changes.gmailSidebarSimplifyEnabled || changes.gmailSidebarVisibleItems) {
+        applySidebarSimplifier();
     }
 });
 
 injectSwitcher();
 checkGmailReady();
+scheduleSidebarSimplifier();
 
 // Gmail SPA observer - watch for DOM changes
 const observer = new MutationObserver(() => {
     checkGmailReady();
-injectSwitcher();
+    injectSwitcher();
+    scheduleSidebarSimplifier();
 
     const theme = document.documentElement.getAttribute('data-custom-theme');
     if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -393,6 +979,7 @@ observer.observe(document.body, { childList: true, subtree: true });
 setInterval(() => {
     checkGmailReady();
     injectSwitcher();
+    scheduleSidebarSimplifier();
 }, 2000);
 
 setInterval(() => {

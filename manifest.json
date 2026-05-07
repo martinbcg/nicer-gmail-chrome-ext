@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gmail Theme Switcher Pro",
-  "version": "1.15",
+  "version": "1.16",
   "permissions": ["storage"],
   "host_permissions": ["https://mail.google.com/*"],
   "content_scripts": [
