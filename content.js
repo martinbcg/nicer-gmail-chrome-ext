@@ -52,7 +52,7 @@ const darkStyles = `
     vertical-align: middle;
     z-index: 999;
     flex-shrink: 0;
-    margin: 0 12px;
+    margin: 0;
     position: relative;
   }
   .theme-toggle-btn:hover {
@@ -92,11 +92,13 @@ const darkStyles = `
   .gmail-extension-button-slot {
     align-items: center;
     display: inline-flex;
-    flex: 0 0 auto;
     height: 48px;
     justify-content: center;
-    margin-left: 8px;
-    margin-right: 16px;
+    left: 304px;
+    position: fixed;
+    top: 8px;
+    width: 48px;
+    z-index: 2147483647;
   }
 
   .gmail-sidebar-hidden-by-extension {
@@ -348,32 +350,70 @@ function createSettingsButton() {
     return btn;
 }
 
-function placeSettingsButtonNearLogo(btn, logoArea) {
+function rectFromElement(el) {
+    if (!el) return null;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    if (rect.right <= 0 || rect.bottom <= 0) return null;
+    if (rect.left >= window.innerWidth || rect.top >= window.innerHeight) return null;
+    return rect;
+}
+
+function getVisibleGmailLogoRect() {
+    const logoCandidates = [
+        document.querySelector('a[aria-label="Gmail"]'),
+        document.querySelector('[aria-label="Gmail"]'),
+        document.querySelector('img[alt="Gmail"]'),
+        document.querySelector('.gb_gd'),
+        document.querySelector('.gb_fd')
+    ];
+
+    for (const candidate of logoCandidates) {
+        const rect = rectFromElement(candidate);
+        if (rect) return rect;
+    }
+
+    return null;
+}
+
+function positionSettingsButtonSlot() {
+    const slot = document.querySelector('.gmail-extension-button-slot');
+    if (!slot) return;
+
+    const logoRect = getVisibleGmailLogoRect();
+    const searchRect = rectFromElement(document.querySelector('form[role="search"]')) ||
+        rectFromElement(document.querySelector('[role="search"]'));
+
+    let left = logoRect ? logoRect.right + 20 : 304;
+    if (searchRect) {
+        left = Math.min(left, searchRect.left - 58);
+    }
+    left = Math.max(224, Math.round(left));
+
+    const top = logoRect
+        ? Math.max(8, Math.round(logoRect.top + (logoRect.height - 40) / 2))
+        : 12;
+
+    slot.style.left = `${left}px`;
+    slot.style.top = `${top}px`;
+}
+
+function placeSettingsButtonNearLogo(btn) {
     const slot = document.createElement('div');
     slot.className = 'gmail-extension-button-slot';
     slot.appendChild(btn);
-
-    const wrapper = logoArea.closest('div.gb_gd') ||
-        logoArea.closest('div.gb_fd') ||
-        logoArea.closest('div[role="button"]') ||
-        logoArea.closest('div');
-
-    if (wrapper && wrapper.parentElement && wrapper.closest('#gb')) {
-        wrapper.after(slot);
-        return true;
-    }
-
-    if (logoArea.parentElement && logoArea.closest('#gb')) {
-        logoArea.after(slot);
-        return true;
-    }
-
-    return false;
+    document.body.appendChild(slot);
+    positionSettingsButtonSlot();
+    return true;
 }
 
 function injectSwitcher() {
     // Check if button already exists
-    if (document.getElementById('gmail-theme-toggle-btn')) return;
+    if (document.getElementById('gmail-theme-toggle-btn')) {
+        positionSettingsButtonSlot();
+        return;
+    }
 
     const gb = document.getElementById('gb');
     let possibleAnchors = [];
@@ -412,43 +452,11 @@ function injectSwitcher() {
 
     if (anchor) {
         const btn = createSettingsButton();
-
-        if (anchor.classList.contains('gb_jd') || anchor.classList.contains('gb_gd') || anchor.getAttribute('aria-label') === 'Gmail') {
-             if (!placeSettingsButtonNearLogo(btn, anchor)) {
-                 anchor.after(btn);
-             }
-        }
-        else {
-            let target = anchor.closest('.gb_Kd') || anchor.closest('.gb_re') || anchor.parentElement;
-            
-            if (target && target.tagName !== 'BODY' && target.tagName !== 'HTML') {
-                const style = window.getComputedStyle(target);
-                if (style.display === 'flex' || style.display === 'inline-flex') {
-                    target.insertBefore(btn, target.lastElementChild);
-                } else {
-                    target.appendChild(btn);
-                }
-            } else {
-                 document.body.appendChild(btn);
-                 btn.style.position = 'fixed';
-                 btn.style.top = '12px';
-                 btn.style.left = '260px'; // Top Left-ish (after sidebar)
-                 btn.style.zIndex = '99999';
-                 btn.style.backgroundColor = 'white';
-                 btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
-            }
-        }
-
+        placeSettingsButtonNearLogo(btn);
         updateSidebarButtonAppearance();
     } else {
         const btn = createSettingsButton();
-        document.body.appendChild(btn);
-        btn.style.position = 'fixed';
-        btn.style.top = '12px';
-        btn.style.left = '260px';
-        btn.style.zIndex = '99999';
-        btn.style.backgroundColor = 'white';
-        btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+        placeSettingsButtonNearLogo(btn);
         updateSidebarButtonAppearance();
     }
 }
@@ -1176,11 +1184,13 @@ chrome.storage.onChanged.addListener((changes) => {
 injectSwitcher();
 checkGmailReady();
 scheduleSidebarSimplifier();
+window.addEventListener('resize', positionSettingsButtonSlot);
 
 // Gmail SPA observer - watch for DOM changes
 const observer = new MutationObserver(() => {
     checkGmailReady();
     injectSwitcher();
+    positionSettingsButtonSlot();
     scheduleSidebarSimplifier();
 
     const theme = document.documentElement.getAttribute('data-custom-theme');
@@ -1203,6 +1213,7 @@ document.addEventListener('click', (e) => {
 setInterval(() => {
     checkGmailReady();
     injectSwitcher();
+    positionSettingsButtonSlot();
     scheduleSidebarSimplifier();
 }, 2000);
 
