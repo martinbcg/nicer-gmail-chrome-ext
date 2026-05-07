@@ -72,38 +72,8 @@ const darkStyles = `
   .theme-toggle-btn[data-theme="system"] svg {
     fill: #81c995;
   }
-
-  .sidebar-settings-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    transition: background 0.2s, transform 0.2s;
-    vertical-align: middle;
-    z-index: 999;
-    flex-shrink: 0;
-    margin: 0 4px;
-  }
-  .sidebar-settings-btn:hover {
-    background: rgba(60, 64, 67, 0.1);
-    transform: scale(1.1);
-  }
-  .sidebar-settings-btn:active {
-    transform: scale(0.95);
-  }
-  .sidebar-settings-btn svg {
-    fill: #5f6368;
-    width: 20px;
-    height: 20px;
-    transition: fill 0.2s;
-  }
-  .sidebar-settings-btn[data-enabled="true"] svg {
-    fill: #fbbc04;
+  .theme-toggle-btn[data-sidebar-enabled="true"] {
+    background: rgba(251, 188, 4, 0.16);
   }
 
   .gmail-sidebar-hidden-by-extension {
@@ -162,6 +132,52 @@ const darkStyles = `
     max-height: calc(min(640px, calc(100vh - 96px)) - 62px);
     overflow: auto;
     padding: 10px 0 12px;
+  }
+  .gmail-sidebar-section-title {
+    color: #5f6368;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 16px;
+    padding: 10px 16px 6px;
+    text-transform: uppercase;
+  }
+  .gmail-theme-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 0 16px 10px;
+    border-bottom: 1px solid rgba(60, 64, 67, 0.12);
+  }
+  .gmail-theme-option {
+    align-items: center;
+    background: transparent;
+    border: 1px solid rgba(60, 64, 67, 0.2);
+    border-radius: 6px;
+    color: #202124;
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    font-size: 13px;
+    gap: 6px;
+    height: 34px;
+    justify-content: center;
+    padding: 0 8px;
+  }
+  .gmail-theme-option:hover {
+    background: rgba(60, 64, 67, 0.08);
+  }
+  .gmail-theme-option[data-active="true"] {
+    background: rgba(26, 115, 232, 0.12);
+    border-color: #1a73e8;
+    color: #1a73e8;
+    font-weight: 600;
+  }
+  .gmail-theme-option svg {
+    fill: currentColor;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
   }
   .gmail-sidebar-master-row,
   .gmail-sidebar-option {
@@ -224,16 +240,16 @@ const ICONS = {
   system: `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`
 };
 
-const TITLES = {
-  light: 'Light Mode (click for System)',
-  dark: 'Dark Mode (click for Light)',
-  system: 'System Mode (click for Dark)'
+const THEME_LABELS = {
+  light: 'Light',
+  dark: 'Dark',
+  system: 'System'
 };
 
 const SIDEBAR_DEFAULT_VISIBLE = ['inbox', 'sent', 'drafts'];
 const SIDEBAR_STORAGE_KEYS = ['gmailSidebarSimplifyEnabled', 'gmailSidebarVisibleItems'];
 
-const SIDEBAR_ICON = `<svg viewBox="0 0 24 24"><path d="M3 5.5C3 4.67 3.67 4 4.5 4h15c.83 0 1.5.67 1.5 1.5v13c0 .83-.67 1.5-1.5 1.5h-15C3.67 20 3 19.33 3 18.5v-13zM5 6v12h4V6H5zm6 0v12h8V6h-8zm-5 3h2v1.5H6V9zm0 3h2v1.5H6V12zm0 3h2v1.5H6V15z"/></svg>`;
+const SETTINGS_ICON = `<svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.37-.31-.6-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98L14.5 2.42C14.47 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.5.42L9.12 5.07c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.08-.48 0-.6.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.08.65-.08.98s.03.66.08.98l-2.11 1.65c-.19.15-.25.42-.12.64l2 3.46c.12.22.37.31.6.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .47-.18.5-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.08.48 0 .6-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>`;
 
 const CORE_SIDEBAR_ITEMS = {
   inbox: 'Inbox',
@@ -253,19 +269,40 @@ const CORE_SIDEBAR_ITEMS = {
 function updateToggleButton(theme) {
     const btn = document.getElementById('gmail-theme-toggle-btn');
     if (!btn) return;
-    
-    btn.innerHTML = ICONS[theme] || ICONS.system;
-    btn.title = TITLES[theme] || TITLES.system;
+
+    btn.innerHTML = SETTINGS_ICON;
+    btn.title = 'Gmail extension settings';
     btn.setAttribute('data-theme', theme);
 }
 
 // --- 3. Inject Button into Gmail UI ---
+function createSettingsButton() {
+    const btn = document.createElement('button');
+    btn.id = 'gmail-theme-toggle-btn';
+    btn.className = 'theme-toggle-btn';
+    btn.setAttribute('aria-label', 'Open Gmail extension settings');
+    btn.type = 'button';
+    btn.innerHTML = SETTINGS_ICON;
+    btn.title = 'Gmail extension settings';
+    btn.style.marginLeft = '10px';
+
+    chrome.storage.sync.get(['gmailTheme'], (res) => {
+        const currentTheme = res.gmailTheme || 'system';
+        updateToggleButton(currentTheme);
+    });
+
+    btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSidebarSettingsPanel();
+    };
+
+    return btn;
+}
+
 function injectSwitcher() {
     // Check if button already exists
-    if (document.getElementById('gmail-theme-toggle-btn')) {
-        injectSidebarButton();
-        return;
-    }
+    if (document.getElementById('gmail-theme-toggle-btn')) return;
 
     const gb = document.getElementById('gb');
     let possibleAnchors = [];
@@ -303,36 +340,7 @@ function injectSwitcher() {
     });
 
     if (anchor) {
-        const btn = document.createElement('button');
-        btn.id = 'gmail-theme-toggle-btn';
-        btn.className = 'theme-toggle-btn';
-        btn.setAttribute('aria-label', 'Switch Theme');
-        btn.type = 'button';
-        btn.style.marginLeft = '10px';
-        
-        // Get current theme and set initial icon
-        chrome.storage.sync.get(['gmailTheme'], (res) => {
-            const currentTheme = res.gmailTheme || 'system';
-            btn.innerHTML = ICONS[currentTheme] || ICONS.system;
-            btn.title = TITLES[currentTheme] || TITLES.system;
-            btn.setAttribute('data-theme', currentTheme);
-        });
-
-        btn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            chrome.storage.sync.get(['gmailTheme'], (res) => {
-                const current = res.gmailTheme || 'system';
-                let next = 'dark';
-                if (current === 'dark') next = 'light';
-                else if (current === 'light') next = 'system';
-                
-                chrome.storage.sync.set({ gmailTheme: next }, () => {
-                    updateTheme(next);
-                    updateToggleButton(next);
-                });
-            });
-        };
+        const btn = createSettingsButton();
 
         // Placement Logic
         // Priority 1: Insert before the Search Bar (Center of header)
@@ -347,7 +355,7 @@ function injectSwitcher() {
                  searchWrapper.parentElement.insertBefore(btn, searchWrapper);
                  btn.style.marginRight = '20px';
                  btn.style.marginLeft = '10px';
-                 injectSidebarButton();
+                 updateSidebarButtonAppearance();
                  return;
             }
         }
@@ -386,9 +394,17 @@ function injectSwitcher() {
             }
         }
 
-        injectSidebarButton();
+        updateSidebarButtonAppearance();
     } else {
-        injectSidebarButton();
+        const btn = createSettingsButton();
+        document.body.appendChild(btn);
+        btn.style.position = 'fixed';
+        btn.style.top = '12px';
+        btn.style.left = '260px';
+        btn.style.zIndex = '99999';
+        btn.style.backgroundColor = 'white';
+        btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+        updateSidebarButtonAppearance();
     }
 }
 
@@ -621,50 +637,17 @@ function scheduleSidebarSimplifier(delay = 120) {
     window._sidebarSimplifyTimeout = setTimeout(applySidebarSimplifier, delay);
 }
 
-function injectSidebarButton() {
-    if (document.getElementById('gmail-sidebar-settings-btn')) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'gmail-sidebar-settings-btn';
-    btn.className = 'sidebar-settings-btn';
-    btn.setAttribute('aria-label', 'Configure Gmail sidebar');
-    btn.title = 'Configure Gmail sidebar';
-    btn.type = 'button';
-    btn.innerHTML = SIDEBAR_ICON;
-
-    btn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleSidebarSettingsPanel();
-    };
-
-    const themeButton = document.getElementById('gmail-theme-toggle-btn');
-    if (themeButton && themeButton.parentElement) {
-        themeButton.after(btn);
-    } else {
-        document.body.appendChild(btn);
-        btn.style.position = 'fixed';
-        btn.style.top = '12px';
-        btn.style.left = '308px';
-        btn.style.zIndex = '99999';
-        btn.style.backgroundColor = 'white';
-        btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
-    }
-
-    updateSidebarButtonAppearance();
-}
-
 function updateSidebarButtonAppearance(settings) {
-    const btn = document.getElementById('gmail-sidebar-settings-btn');
+    const btn = document.getElementById('gmail-theme-toggle-btn');
     if (!btn) return;
 
     if (settings) {
-        btn.setAttribute('data-enabled', String(settings.enabled));
+        btn.setAttribute('data-sidebar-enabled', String(settings.enabled));
         return;
     }
 
     getSidebarSettings((nextSettings) => {
-        btn.setAttribute('data-enabled', String(nextSettings.enabled));
+        btn.setAttribute('data-sidebar-enabled', String(nextSettings.enabled));
     });
 }
 
@@ -710,9 +693,9 @@ function renderSidebarSettingsPanel(settings) {
     panel.id = 'gmail-sidebar-settings-panel';
     panel.className = 'gmail-sidebar-panel';
     panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-label', 'Gmail sidebar settings');
+    panel.setAttribute('aria-label', 'Gmail extension settings');
 
-    const theme = document.documentElement.getAttribute('data-custom-theme');
+    const theme = document.documentElement.getAttribute('data-custom-theme') || 'system';
     const darkActive = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     panel.dataset.themeActive = String(darkActive);
 
@@ -721,10 +704,20 @@ function renderSidebarSettingsPanel(settings) {
 
     panel.innerHTML = `
         <div class="gmail-sidebar-panel-header">
-            <div class="gmail-sidebar-panel-title">Sidebar</div>
+            <div class="gmail-sidebar-panel-title">Gmail settings</div>
             <button class="gmail-sidebar-panel-close" type="button" aria-label="Close sidebar settings">&times;</button>
         </div>
         <div class="gmail-sidebar-panel-body">
+            <div class="gmail-sidebar-section-title">Theme</div>
+            <div class="gmail-theme-options">
+                ${['light', 'system', 'dark'].map((themeKey) => `
+                    <button class="gmail-theme-option" type="button" data-theme-choice="${themeKey}" data-active="${theme === themeKey}">
+                        ${ICONS[themeKey]}
+                        <span>${THEME_LABELS[themeKey]}</span>
+                    </button>
+                `).join('')}
+            </div>
+            <div class="gmail-sidebar-section-title">Sidebar</div>
             <label class="gmail-sidebar-master-row">
                 <input type="checkbox" data-sidebar-master ${settings.enabled ? 'checked' : ''}>
                 <span>Simplify sidebar</span>
@@ -752,6 +745,16 @@ function renderSidebarSettingsPanel(settings) {
     }
 
     panel.querySelector('.gmail-sidebar-panel-close').onclick = () => panel.remove();
+    panel.querySelectorAll('[data-theme-choice]').forEach((button) => {
+        button.onclick = () => {
+            const nextTheme = button.dataset.themeChoice;
+            chrome.storage.sync.set({ gmailTheme: nextTheme }, () => {
+                updateTheme(nextTheme);
+                updateToggleButton(nextTheme);
+                renderSidebarSettingsPanel(settings);
+            });
+        };
+    });
     panel.querySelector('[data-sidebar-master]').onchange = (e) => {
         saveSidebarSettings({ gmailSidebarSimplifyEnabled: e.target.checked });
     };
@@ -780,7 +783,7 @@ function renderSidebarSettingsPanel(settings) {
 
     setTimeout(() => {
         const closeOnOutsideClick = (e) => {
-            if (!panel.contains(e.target) && !e.target.closest('#gmail-sidebar-settings-btn')) {
+            if (!panel.contains(e.target) && !e.target.closest('#gmail-theme-toggle-btn')) {
                 panel.remove();
                 document.removeEventListener('click', closeOnOutsideClick, true);
             }
@@ -865,7 +868,7 @@ function fixEmailBackgrounds() {
     // Elements with inline background styles
     document.querySelectorAll('[style*="background"]').forEach(el => {
         if (el.tagName === 'IMG' || el.tagName === 'VIDEO' || el.tagName === 'CANVAS') return;
-        if (el.closest('#gb') || el.closest('.theme-toggle-btn') || el.closest('.sidebar-settings-btn') || el.closest('.gmail-sidebar-panel')) return;
+        if (el.closest('#gb') || el.closest('.theme-toggle-btn') || el.closest('.gmail-sidebar-panel')) return;
         
         if (!originalStyles.has(el)) {
             originalStyles.set(el, el.getAttribute('style'));
@@ -950,6 +953,9 @@ chrome.storage.onChanged.addListener((changes) => {
         updateTheme(changes.gmailTheme.newValue);
         updateToggleButton(changes.gmailTheme.newValue);
         applySidebarSimplifier();
+        if (document.getElementById('gmail-sidebar-settings-panel')) {
+            getSidebarSettings(renderSidebarSettingsPanel);
+        }
     }
 
     if (changes.gmailSidebarSimplifyEnabled || changes.gmailSidebarVisibleItems) {
