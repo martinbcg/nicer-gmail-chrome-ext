@@ -80,6 +80,26 @@ const darkStyles = `
   .gmail-sidebar-hidden-by-extension {
     display: none !important;
   }
+  .gmail-sidebar-pinned-row {
+    box-sizing: border-box;
+  }
+  .gmail-sidebar-pinned-row a {
+    color: inherit !important;
+    display: block;
+    text-decoration: none !important;
+  }
+  .gmail-sidebar-pinned-row .gmail-sidebar-pinned-link {
+    align-items: center;
+    box-sizing: border-box;
+    display: flex;
+    min-height: 32px;
+    padding: 0 24px 0 72px;
+    width: 100%;
+  }
+  .gmail-sidebar-pinned-row .gmail-sidebar-pinned-link:hover {
+    background: rgba(60, 64, 67, 0.08);
+    border-radius: 0 16px 16px 0;
+  }
 
   .gmail-sidebar-panel {
     position: fixed;
@@ -246,7 +266,7 @@ const THEME_LABELS = {
 
 const SIDEBAR_DEFAULT_VISIBLE = ['inbox', 'sent', 'drafts'];
 const SIDEBAR_STORAGE_KEYS = ['gmailSidebarSimplifyEnabled', 'gmailSidebarVisibleItems'];
-const SIDEBAR_SCOPE_SELECTOR = '[role="navigation"], nav, .byl, .aeN';
+const SIDEBAR_SCOPE_SELECTOR = '[role="navigation"], nav, .byl, .aeN, .wT, .ajl, .nM';
 
 const SETTINGS_ICON = `<svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.37-.31-.6-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98L14.5 2.42C14.47 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.5.42L9.12 5.07c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.08-.48 0-.6.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.08.65-.08.98s.03.66.08.98l-2.11 1.65c-.19.15-.25.42-.12.64l2 3.46c.12.22.37.31.6.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .47-.18.5-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.08.48 0 .6-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>`;
 
@@ -262,6 +282,20 @@ const CORE_SIDEBAR_ITEMS = {
   spam: 'Spam',
   trash: 'Trash',
   chats: 'Chats'
+};
+
+const CORE_SIDEBAR_HREFS = {
+  inbox: '#inbox',
+  starred: '#starred',
+  snoozed: '#snoozed',
+  important: '#imp',
+  sent: '#sent',
+  drafts: '#drafts',
+  scheduled: '#scheduled',
+  all: '#all',
+  spam: '#spam',
+  trash: '#trash',
+  chats: '#chats'
 };
 
 // --- 2. Update Toggle Button Appearance ---
@@ -461,13 +495,13 @@ function normalizeSidebarControlText(text) {
 
 function isMoreToggleText(text) {
     const normalized = normalizeSidebarControlText(text);
-    return /^(more|mas|más|less|menos)$/i.test(normalized) ||
+    return /^(more|mas|más|less|menos|more labels|less labels|mas etiquetas|más etiquetas|menos etiquetas)$/i.test(normalized) ||
         /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(normalized);
 }
 
 function isLessToggleText(text) {
     const normalized = normalizeSidebarControlText(text);
-    return /^(less|menos)$/i.test(normalized) ||
+    return /^(less|menos|less labels|menos etiquetas)$/i.test(normalized) ||
         /\b(show less|mostrar menos)\b/i.test(normalized);
 }
 
@@ -529,6 +563,9 @@ function getSidebarItemLabel(link, key) {
 }
 
 function getSidebarRow(el) {
+    const pinnedRow = el.closest('.gmail-sidebar-pinned-row');
+    if (pinnedRow) return pinnedRow;
+
     const explicitRow = el.closest('.TO') ||
         el.closest('.aim') ||
         el.closest('[role="treeitem"]') ||
@@ -552,6 +589,9 @@ function getSidebarRow(el) {
 
 function getSidebarScope(el) {
     return el.closest('.byl') ||
+        el.closest('.wT') ||
+        el.closest('.ajl') ||
+        el.closest('.nM') ||
         el.closest('[role="navigation"], nav') ||
         el.closest('.aeN');
 }
@@ -603,6 +643,77 @@ function detectSidebarItems() {
     return items;
 }
 
+function removeStalePinnedSidebarRows(visibleItems, nativeItems, expectedParent) {
+    const nativeKeys = new Set(nativeItems
+        .filter((item) => !item.row.closest('.gmail-sidebar-pinned-row'))
+        .map((item) => item.key));
+
+    document.querySelectorAll('.gmail-sidebar-pinned-row').forEach((row) => {
+        const key = row.dataset.gmailSidebarKey;
+        if (!visibleItems.has(key) || nativeKeys.has(key) || (expectedParent && row.parentElement !== expectedParent)) {
+            row.remove();
+        }
+    });
+}
+
+function getSidebarInsertParent(nativeItems, moreToggle) {
+    const firstNativeRow = nativeItems.find((item) => item.row && item.row.parentElement)?.row;
+    if (firstNativeRow) {
+        const listRow = firstNativeRow.closest('.aim') || firstNativeRow;
+        if (listRow.parentElement) return listRow.parentElement;
+    }
+
+    const moreRow = moreToggle ? getSidebarControlRow(moreToggle) : null;
+    if (moreRow && moreRow.parentElement) {
+        const listRow = moreRow.closest('.n6') || moreRow;
+        if (listRow.parentElement) return listRow.parentElement;
+    }
+
+    const scope = getSidebarScopeElements().find((el) => el.querySelector('a[href*="#"], [role="button"], [aria-expanded]'));
+    return scope || null;
+}
+
+function createPinnedSidebarRow(key) {
+    const label = keyToLabel(key);
+    const href = CORE_SIDEBAR_HREFS[key];
+    if (!href) return null;
+
+    const row = document.createElement('div');
+    row.className = 'aim gmail-sidebar-pinned-row';
+    row.dataset.gmailSidebarKey = key;
+    row.innerHTML = `
+        <div class="TO">
+            <div class="TN bzz">
+                <div class="aio">
+                    <span class="nU">
+                        <a class="J-Ke n0 gmail-sidebar-pinned-link" href="${escapeAttribute(href)}" aria-label="${escapeAttribute(label)}">${escapeHTML(label)}</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    return row;
+}
+
+function ensurePinnedVisibleSidebarItems(visibleItems, nativeItems, moreToggle) {
+    const nativeKeys = new Set(nativeItems
+        .filter((item) => !item.row.closest('.gmail-sidebar-pinned-row'))
+        .map((item) => item.key));
+    const parent = getSidebarInsertParent(nativeItems, moreToggle);
+    if (!parent) return;
+
+    removeStalePinnedSidebarRows(visibleItems, nativeItems, parent);
+
+    Array.from(visibleItems).forEach((key) => {
+        if (!CORE_SIDEBAR_HREFS[key] || nativeKeys.has(key)) return;
+        if (document.querySelector(`.gmail-sidebar-pinned-row[data-gmail-sidebar-key="${CSS.escape(key)}"]`)) return;
+
+        const row = createPinnedSidebarRow(key);
+        if (row) parent.appendChild(row);
+    });
+}
+
 function getSidebarMoreToggles() {
     const seen = new Set();
 
@@ -634,7 +745,7 @@ function isSidebarMoreExpanded(toggle) {
         isLessToggleText(text);
 }
 
-function getLabelsHeaderRows() {
+function getAuxiliarySidebarHeaderRows() {
     const seen = new Set();
 
     return getSidebarScopeElements()
@@ -642,7 +753,7 @@ function getLabelsHeaderRows() {
         .filter((el) => {
             if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
             const text = normalizeSidebarControlText(getSidebarElementText(el));
-            return /^(labels|etiquetas)$/i.test(text);
+            return /^(labels|etiquetas|categories|categorias|categorías)$/i.test(text);
         })
         .map(getSidebarControlRow)
         .filter((row) => {
@@ -664,15 +775,21 @@ function isUnsafeSidebarAuxiliaryRow(row, visibleItems) {
 
 function toggleAuxiliarySidebarControls(settings, primaryMoreToggle, visibleItems) {
     const primaryMoreRow = primaryMoreToggle ? getSidebarControlRow(primaryMoreToggle) : null;
-    const auxiliaryRows = [
-        ...getSidebarMoreToggles().map(getSidebarControlRow).filter((row) => row && row !== primaryMoreRow),
-        ...getLabelsHeaderRows()
-    ];
-    const shouldHide = settings.enabled && Boolean(primaryMoreToggle);
+    const primaryMoreExpanded = isSidebarMoreExpanded(primaryMoreToggle);
+    const secondaryMoreRows = getSidebarMoreToggles()
+        .map(getSidebarControlRow)
+        .filter((row) => row && row !== primaryMoreRow);
+    const headerRows = getAuxiliarySidebarHeaderRows();
+    const shouldHideHeaders = settings.enabled && Boolean(primaryMoreToggle) && !primaryMoreExpanded;
 
-    auxiliaryRows.forEach((row) => {
+    secondaryMoreRows.forEach((row) => {
         if (isUnsafeSidebarAuxiliaryRow(row, visibleItems)) return;
-        row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHide);
+        row.classList.toggle('gmail-sidebar-hidden-by-extension', settings.enabled);
+    });
+
+    headerRows.forEach((row) => {
+        if (isUnsafeSidebarAuxiliaryRow(row, visibleItems)) return;
+        row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHideHeaders);
     });
 }
 
@@ -683,9 +800,17 @@ function applySidebarSimplifier() {
         const moreExpanded = isSidebarMoreExpanded(moreToggle);
         const sidebarItems = detectSidebarItems();
 
+        if (settings.enabled) {
+            ensurePinnedVisibleSidebarItems(visibleItems, sidebarItems, moreToggle);
+        } else {
+            document.querySelectorAll('.gmail-sidebar-pinned-row').forEach((row) => row.remove());
+        }
+
+        const updatedSidebarItems = detectSidebarItems();
+
         toggleAuxiliarySidebarControls(settings, moreToggle, visibleItems);
 
-        sidebarItems.forEach((item) => {
+        updatedSidebarItems.forEach((item) => {
             const shouldHide = settings.enabled && !moreExpanded && !visibleItems.has(item.key);
             item.row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHide);
         });
@@ -702,8 +827,11 @@ function applySidebarSimplifier() {
 }
 
 function scheduleSidebarSimplifier(delay = 300) {
-    clearTimeout(window._sidebarSimplifyTimeout);
-    window._sidebarSimplifyTimeout = setTimeout(applySidebarSimplifier, delay);
+    if (window._sidebarSimplifyTimeout) return;
+    window._sidebarSimplifyTimeout = setTimeout(() => {
+        window._sidebarSimplifyTimeout = null;
+        applySidebarSimplifier();
+    }, delay);
 }
 
 function updateSidebarButtonAppearance(settings) {
@@ -1048,7 +1176,15 @@ const observer = new MutationObserver(() => {
         window._fixBgTimeout = setTimeout(fixEmailBackgrounds, 100);
     }
 });
-observer.observe(document.body, { childList: true, subtree: true });
+observer.observe(document.body, { attributes: true, characterData: true, childList: true, subtree: true });
+
+document.addEventListener('click', (e) => {
+    if (getSidebarScope(e.target)) {
+        scheduleSidebarSimplifier(75);
+        setTimeout(applySidebarSimplifier, 350);
+        setTimeout(applySidebarSimplifier, 900);
+    }
+}, true);
 
 // Backup checks for dynamic content
 setInterval(() => {
