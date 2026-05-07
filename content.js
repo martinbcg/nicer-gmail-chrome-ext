@@ -64,6 +64,7 @@ const darkStyles = `
     fill: #5f6368;
     width: 20px;
     height: 20px;
+    pointer-events: none;
     transition: fill 0.2s;
   }
   .theme-toggle-btn[data-theme="dark"] svg {
@@ -245,6 +246,7 @@ const THEME_LABELS = {
 
 const SIDEBAR_DEFAULT_VISIBLE = ['inbox', 'sent', 'drafts'];
 const SIDEBAR_STORAGE_KEYS = ['gmailSidebarSimplifyEnabled', 'gmailSidebarVisibleItems'];
+const SIDEBAR_SCOPE_SELECTOR = '[role="navigation"], nav, .byl, .aeN';
 
 const SETTINGS_ICON = `<svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.37-.31-.6-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98L14.5 2.42C14.47 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.5.42L9.12 5.07c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.08-.48 0-.6.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.08.65-.08.98s.03.66.08.98l-2.11 1.65c-.19.15-.25.42-.12.64l2 3.46c.12.22.37.31.6.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .47-.18.5-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.08.48 0 .6-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>`;
 
@@ -288,11 +290,11 @@ function createSettingsButton() {
         updateToggleButton(currentTheme);
     });
 
-    btn.onclick = (e) => {
+    btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         toggleSidebarSettingsPanel();
-    };
+    });
 
     return btn;
 }
@@ -446,6 +448,29 @@ function cleanSidebarText(text) {
         .trim();
 }
 
+function getSidebarElementText(el) {
+    return cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+}
+
+function normalizeSidebarControlText(text) {
+    return cleanSidebarText(text)
+        .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function isMoreToggleText(text) {
+    const normalized = normalizeSidebarControlText(text);
+    return /^(more|mas|más|less|menos)$/i.test(normalized) ||
+        /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(normalized);
+}
+
+function isLessToggleText(text) {
+    const normalized = normalizeSidebarControlText(text);
+    return /^(less|menos)$/i.test(normalized) ||
+        /\b(show less|mostrar menos)\b/i.test(normalized);
+}
+
 function keyToLabel(key) {
     if (CORE_SIDEBAR_ITEMS[key]) return CORE_SIDEBAR_ITEMS[key];
     if (key.startsWith('category:')) {
@@ -503,13 +528,36 @@ function getSidebarItemLabel(link, key) {
     return keyToLabel(key);
 }
 
-function getSidebarRow(link) {
-    return link.closest('.TO') ||
-        link.closest('.aim') ||
-        link.closest('[role="treeitem"]') ||
-        link.closest('[role="button"]') ||
-        link.closest('[role="link"]') ||
-        link;
+function getSidebarRow(el) {
+    const explicitRow = el.closest('.TO') ||
+        el.closest('.aim') ||
+        el.closest('[role="treeitem"]') ||
+        el.closest('[role="button"]') ||
+        el.closest('[role="link"]') ||
+        null;
+
+    if (explicitRow) return explicitRow;
+
+    let row = el;
+    let parent = el.parentElement;
+    while (parent && getSidebarScope(parent) && !parent.matches(SIDEBAR_SCOPE_SELECTOR)) {
+        const text = cleanSidebarText(parent.textContent);
+        if (text.length > 90 || parent.children.length > 8) break;
+        row = parent;
+        parent = parent.parentElement;
+    }
+
+    return row;
+}
+
+function getSidebarScope(el) {
+    return el.closest('.byl') ||
+        el.closest('[role="navigation"], nav') ||
+        el.closest('.aeN');
+}
+
+function getSidebarScopeElements() {
+    return Array.from(document.querySelectorAll(SIDEBAR_SCOPE_SELECTOR));
 }
 
 function getSidebarControlRow(el) {
@@ -518,7 +566,7 @@ function getSidebarControlRow(el) {
 
     let row = el;
     let parent = el.parentElement;
-    while (parent && parent.closest('[role="navigation"], nav') && !parent.matches('[role="navigation"], nav')) {
+    while (parent && getSidebarScope(parent) && !parent.matches(SIDEBAR_SCOPE_SELECTOR)) {
         const text = cleanSidebarText(parent.textContent);
         if (text.length > 90 || parent.children.length > 8) break;
         row = parent;
@@ -535,8 +583,7 @@ function detectSidebarItems() {
 
     links.forEach((link) => {
         if (link.closest('#gb') || link.closest('.gmail-sidebar-panel')) return;
-        const navigation = link.closest('[role="navigation"], nav');
-        if (!navigation) return;
+        if (!getSidebarScope(link)) return;
 
         const key = getSidebarItemKey(link);
         if (!key) return;
@@ -562,16 +609,13 @@ function getSidebarMoreToggles() {
     return Array.from(document.querySelectorAll('[role="button"], [aria-expanded], a, div'))
         .filter((el) => {
             if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
-            if (!el.closest('[role="navigation"], nav')) return false;
-            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+            if (!getSidebarScope(el)) return false;
+            const text = getSidebarElementText(el);
             if (text.length > 40) return false;
-            return /^(more|mas|más|less|menos)$/i.test(text) ||
-                /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
+            return isMoreToggleText(text);
         })
         .filter((el) => {
-            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
-            const isMoreToggle = /^(more|mas|más|less|menos)$/i.test(text) ||
-                /\b(show more|show less|mostrar mas|mostrar más|mostrar menos)\b/i.test(text);
+            const isMoreToggle = isMoreToggleText(getSidebarElementText(el));
             const row = getSidebarControlRow(el);
             if (!isMoreToggle || seen.has(row)) return false;
             seen.add(row);
@@ -585,19 +629,19 @@ function getSidebarMoreToggle() {
 
 function isSidebarMoreExpanded(toggle) {
     if (!toggle) return false;
-    const text = cleanSidebarText(toggle.getAttribute('aria-label') || toggle.getAttribute('title') || toggle.textContent);
+    const text = getSidebarElementText(toggle);
     return toggle.getAttribute('aria-expanded') === 'true' ||
-        /^(less|menos)$/i.test(text) ||
-        /\b(show less|mostrar menos)\b/i.test(text);
+        isLessToggleText(text);
 }
 
 function getLabelsHeaderRows() {
     const seen = new Set();
 
-    return Array.from(document.querySelectorAll('[role="navigation"] *, nav *'))
+    return getSidebarScopeElements()
+        .flatMap((scope) => Array.from(scope.querySelectorAll('*')))
         .filter((el) => {
             if (el.closest('#gb') || el.closest('.gmail-sidebar-panel')) return false;
-            const text = cleanSidebarText(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent);
+            const text = normalizeSidebarControlText(getSidebarElementText(el));
             return /^(labels|etiquetas)$/i.test(text);
         })
         .map(getSidebarControlRow)
@@ -608,7 +652,17 @@ function getLabelsHeaderRows() {
         });
 }
 
-function toggleAuxiliarySidebarControls(settings, primaryMoreToggle) {
+function isUnsafeSidebarAuxiliaryRow(row, visibleItems) {
+    if (!row || row.matches('[role="navigation"], nav')) return true;
+
+    const visibleItemRows = detectSidebarItems()
+        .filter((item) => visibleItems.has(item.key))
+        .map((item) => item.row);
+
+    return visibleItemRows.some((itemRow) => row !== itemRow && row.contains(itemRow));
+}
+
+function toggleAuxiliarySidebarControls(settings, primaryMoreToggle, visibleItems) {
     const primaryMoreRow = primaryMoreToggle ? getSidebarControlRow(primaryMoreToggle) : null;
     const auxiliaryRows = [
         ...getSidebarMoreToggles().map(getSidebarControlRow).filter((row) => row && row !== primaryMoreRow),
@@ -617,6 +671,7 @@ function toggleAuxiliarySidebarControls(settings, primaryMoreToggle) {
     const shouldHide = settings.enabled && Boolean(primaryMoreToggle);
 
     auxiliaryRows.forEach((row) => {
+        if (isUnsafeSidebarAuxiliaryRow(row, visibleItems)) return;
         row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHide);
     });
 }
@@ -628,10 +683,10 @@ function applySidebarSimplifier() {
         const moreExpanded = isSidebarMoreExpanded(moreToggle);
         const sidebarItems = detectSidebarItems();
 
-        toggleAuxiliarySidebarControls(settings, moreToggle);
+        toggleAuxiliarySidebarControls(settings, moreToggle, visibleItems);
 
         sidebarItems.forEach((item) => {
-            const shouldHide = settings.enabled && moreToggle && !moreExpanded && !visibleItems.has(item.key);
+            const shouldHide = settings.enabled && !moreExpanded && !visibleItems.has(item.key);
             item.row.classList.toggle('gmail-sidebar-hidden-by-extension', shouldHide);
         });
 
